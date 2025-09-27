@@ -10,14 +10,19 @@ from azure.keyvault.secrets import SecretClient
 from azure.identity import DefaultAzureCredential
 from typing import Dict, List, Optional, Any
 import json
+import os
 from datetime import datetime
+from dotenv import load_dotenv
 
 
 class AidenSpider:
     """The core spider that delivers Microsoft Graph capabilities"""
 
-    def __init__(self, vault_url: str = "https://kv-aiden.vault.azure.net/"):
-        self.vault_url = vault_url
+    def __init__(self, vault_url: str = None):
+        # Load environment variables
+        load_dotenv('.env.local')
+
+        self.vault_url = vault_url or os.getenv('AIDEN_VAULT_URL', "https://kv-aiden.vault.azure.net/")
         self.access_token = None
         self.credentials = {}
         self._authenticate()
@@ -28,10 +33,14 @@ class AidenSpider:
             credential = DefaultAzureCredential()
             client = SecretClient(vault_url=self.vault_url, credential=credential)
 
+            # Get secret names from environment
+            client_id_secret = os.getenv('AIDEN_CLIENT_ID_SECRET', 'aiden-app-id')
+            client_secret_secret = os.getenv('AIDEN_CLIENT_SECRET_SECRET', 'aiden-email-secret-value')
+
             self.credentials = {
-                'client_id': client.get_secret("aiden-app-id").value,
-                'client_secret': client.get_secret("aiden-email-secret-value").value,
-                'tenant_id': "7fbc252f-3ce5-460f-9740-4e1cb8bf78b8"  # Helix Automations tenant
+                'client_id': client.get_secret(client_id_secret).value,
+                'client_secret': client.get_secret(client_secret_secret).value,
+                'tenant_id': os.getenv('AIDEN_TENANT_ID')
             }
 
             # Get access token
@@ -48,13 +57,13 @@ class AidenSpider:
 
             if 'access_token' in response_data:
                 self.access_token = response_data['access_token']
-                print("🕷️ Aiden spider authenticated and ready to crawl")
+                print("🕷️ Aiden authenticated and ready")
             else:
                 print(f"🚫 Token error: {response_data}")
                 raise Exception(f"Authentication failed: {response_data}")
 
         except Exception as e:
-            print(f"🚫 Spider authentication failed: {e}")
+            print(f"🚫 Aiden authentication failed: {e}")
             raise
 
     @property
@@ -203,7 +212,7 @@ sharepoint = SharePointGoodie()
 
 def deliver_goodies():
     """Show what goodies Aiden can deliver"""
-    print("🕷️ Aiden Spider - Available Goodie Packages:")
+    print("🕷️ Aiden - Available Goodie Packages:")
     print("📧 email - Send emails, read inbox")
     print("💬 teams - Access Teams, post messages, read channels")
     print("📅 calendar - Manage events, schedule meetings")
